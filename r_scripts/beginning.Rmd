@@ -1,0 +1,28 @@
+---
+title: "Global Terrorism Database"
+author: ""
+date: "9 juillet 2017"
+output: html_document
+---
+
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+</style>
+
+
+##### ... begin 2 column section ...  
+
+<div class="col2">
+
+https://www.start.umd.edu/gtd/  
+
+Information on more than 170,000 Terrorist Attacks  
+
+The Global Terrorism Database (GTD) is an open-source database including information on terrorist events around the world from 1970 through 2016 (with annual updates planned for the future). Unlike many other event databases, the GTD includes systematic data on domestic as well as international terrorist incidents that have occurred during this time period and now includes more than 170,000 cases.  
+
+</div>

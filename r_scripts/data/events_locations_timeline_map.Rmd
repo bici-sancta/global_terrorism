@@ -1,0 +1,362 @@
+---
+title: "events_locations_timeline_map"
+author: "pmcdevitt"
+date: "4 août 2017"
+output: html_document
+---
+
+```{r setup, echo = FALSE, message = FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	geo distance between successive attacks
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+rm(list = ls())
+
+library(ggmap)
+library(geosphere)
+library(stats)
+library(geonames)
+library(TTR)
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	load some mapping libraries
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+library(ggplot2)
+library(ggmap)
+
+```
+
+
+
+```{r load data, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	get the input data
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+setwd("/home/mcdevitt/_smu/_src/global_terrorism/r_scripts/data/")
+
+infile <- "dates_locations.csv"
+locations <- read.csv(infile,
+				stringsAsFactors = FALSE,
+				na.strings = "\"NULL\"")
+
+# ... these next files are created by this script (the 1st time) if flag = FALSE
+# ...	then writes .csv files
+# ...	since the dist() function here is not vectorized, takes some time to calculate
+# ...	in for{} loop.
+# ...	save the .csv files for future processing -- set below flags to TRUE
+
+centroids_file_exists <- TRUE
+if (centroids_file_exists == TRUE)
+{
+	infile <- "annual_attacks_geocentroid.csv"
+	year_centroid <- read.csv(infile,
+					  stringsAsFactors = FALSE)
+}
+
+locations_delta_distances <- TRUE
+if (locations_delta_distances == TRUE)
+{
+	infile <- "locations_with_delta_distances.csv"
+	loc_w_delta_dist <- read.csv(infile,
+					  stringsAsFactors = FALSE)
+}
+
+```
+
+
+```{r next events, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	add to data frame the location of the subsequent attack
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+locations$latitude.nxt <- c(locations$latitude[-1], NA)
+locations$longitude.nxt <- c(locations$longitude[-1], NA)
+
+```
+
+
+```{r centroids, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	arrange to calculate Haversine distance btwn subsequent events
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+if (centroids_file_exists != TRUE)
+{
+
+
+locn1 <- data.frame("lat" = locations$latitude,
+					"lon" = locations$longitude)
+
+locn2 <- data.frame("lat" = locations$latitude.nxt,
+					"lon" = locations$longitude.nxt)
+
+mtrx_locn1 <- as.matrix(locn1)
+mtrx_locn2 <- as.matrix(locn2)
+
+delta_dist <- vector()
+
+for (i in 1 : nrow(locn1))
+{
+
+	delta_dist[i] <- (distm (c(locn1$lon[i], locn1$lat[i]),
+							 c(locn2$lon[i], locn2$lat[i] ),
+							 fun = distHaversine)) / 1000
+
+}
+
+# ...	centroid of coordinates - assume spherical earth
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	determine centroid of annual locations
+# ...		- assume spherical earth
+# ...		- x = R * cos(lat) * cos(lon)
+# ...		- y = R * cos(lat) * sin(lon)
+# ...		- z = R * sin(lat)
+# ...		- 	where R is the approximate radius of earth (e.g. 6371KM)#
+# ...		- The formula for back conversion:
+# ...		- 		lat = asin(z / R)
+# ...		- 		lon = atan2(y, x)
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+earth_rad <- 6371
+subset <- data.frame()
+year_centroid <- data.frame(year = integer(0), lat = numeric(0), lon = numeric(0),
+							x = numeric(0), y = numeric(0), z = numeric(0))
+
+for (iyy in 1970 : 2015)
+{
+	each_year <- NULL
+	each_year <- subset(locations,
+						iyear == iyy,
+						select = c(latitude, longitude))
+	
+	each_year$lat_rad <- each_year$latitude * pi / 180
+	each_year$lon_rad <- each_year$longitude * pi / 180
+	
+	each_year$x <- earth_rad * cos(each_year$lat_rad) * cos(each_year$lon_rad)
+	each_year$y <- earth_rad * cos(each_year$lat_rad) * sin(each_year$lon_rad)
+	each_year$z <- earth_rad * sin(each_year$lat_rad)
+	each_year$r <- sqrt(each_year$x^2 + each_year$y^2 + each_year$z^2)
+	
+	x_sum <- mean(each_year$x, na.rm = TRUE)
+	y_sum <- mean(each_year$y, na.rm = TRUE)
+	z_sum <- mean(each_year$z, na.rm = TRUE)
+	
+	lat <- asin (z_sum / earth_rad) * 180 / pi
+	lon <- atan2 (y_sum, x_sum) * 180 /pi
+	
+	if (!(is.nan(lat)) || !(is.nan(lon)))
+	{
+		year_centroid <- rbind (year_centroid,
+								data.frame(iyy, lat, lon, x_sum, y_sum, z_sum))
+	}
+}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	centroid moving average for smoothed line through points
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	year_centroid$x_3yr <- EMA(year_centroid[,4], n = 3)
+	year_centroid$y_3yr <- EMA(year_centroid[,5], n = 3)
+	year_centroid$z_3yr <- EMA(year_centroid[,6], n = 3)
+
+	year_centroid$lat_3yr <- asin (year_centroid$z_3yr / earth_rad) * 180 / pi
+	year_centroid$lon_3yr <- atan2 (year_centroid$y_3yr, year_centroid$x_3yr) * 180 /pi
+
+#	year_centroid$lat_3yr <- EMA(year_centroid$lat, n = 2)
+#	year_centroid$lon_3yr <- EMA(year_centroid$lon, n = 2)
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	events per year
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	events_per_year <- aggregate(x = locations$iyear,
+		  by = list(locations$iyear),
+		  FUN = length)
+
+	year_centroid$events_per_year <- events_per_year[match(events_per_year$Group.1,
+						   year_centroid$iyy), 2]
+	
+	write.csv (year_centroid, file = "annual_attacks_geocentroid.csv", row.names=FALSE)
+
+}
+
+```
+
+
+```{r distances calc, echo = FALSE}
+
+if (locations_delta_distances != TRUE)
+{
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	add annual centroid back to nominal table
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	locations$year_centroid_lat <- year_centroid[match(locations$iyear, year_centroid$iyy), 2]
+	locations$year_centroid_lon <- year_centroid[match(locations$iyear, year_centroid$iyy), 3]
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	dist of each event from annual centroid
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	for (i in 1 : nrow(locations))
+	{
+		locations$delta_dist_year[i] <- (distm (c(locations$longitude[i], locations$latitude[i]),
+							 c(locations$year_centroid_lon[i], locations$year_centroid_lat[i] ),
+							 fun = distHaversine)) / 1000
+	}
+	
+	locations$decade <- as.integer((locations$iyear - 1970)/10) * 10 + 1970
+	locations$decade <- as.factor(locations$decade)
+	
+	write.csv (locations, file = "locations_with_delta_distances.csv", row.names=FALSE)
+	
+	loc_w_delta_dist <- locations
+}
+	
+```
+
+
+*** 
+
+#### Global Terrorism Database - https://www.start.umd.edu/gtd/  
+
+As a means to identify events clustering and geographic trends, we present the following analysis. The GT database provides the latitude and longitude location of each terrorist attack, along with the date on which it occurred. The database reports events from 1970 to 2015, in all, approximately 156,000 events. To understand the geographic changing nature of terrorism over this period, we determine the geographic center of all the events that occurred in each year. That is to say, for all of the terror events that occurred in 1970, and for each subsequent year, the geo-centroid of the all of the latitude and longitude coordinates was determined.   
+
+The result of this is depicted in Figure 1. We can observe that in 1970 the "center" of terrorist activity occurred at latitude, longitude (30.649873, -80.178993), which corresponds to a location in the North Altantic Ocean, approximately 40 miles east of Jacksonville, Florida. This means that of the 651 reported terrorist events reported in 1970, the geographic center was just off of the east coast of the United States.  Furthermore, we can observe that during the subsequent 10 years of reported terrorist activity that the center of activity consistently moved eastward towards the European coast, then reverted back towards the Americas in the mid 1980s, and then made a steady progression, year by year eastward to arrive in the Persian Gulf about 20 miles NE of Qatar, at latitude, longitude (26.204019, 51.978154).  
+  
+*** 
+
+```{r x-y plot, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	plot lat and lon scatter plot
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	plot(lat ~ iyy, data = year_centroid,
+		col = "coral3",
+		pch = 21,
+		ylim = c(-80, 60),
+		ylab = "Latitude, Longitude (degrees)",
+		xlab = "Year",
+		main = "Geo-Centroid of Terrorist Attacks, Annually")
+
+	points(lon ~ iyy, data = year_centroid,
+		   col = "aquamarine4",
+		   pch = 5)
+	
+	lines(lat_3yr ~ iyy, data = year_centroid, col = "coral3", lty = 1)
+	lines(lon_3yr ~ iyy, data = year_centroid, col = "aquamarine4", lty = 2)
+	
+	legend(2000, -30, legend = c("Latitude", "Longitude"),
+		col = c("coral3", "aquamarine4"), lty = 1 : 2, cex = 1)
+```
+
+
+
+This can be more easily visualized on an earth map, as shown in Figure 2. Here, a dot is presented that represents the geo-centroid for each year's reported terrorist activity, along with a connecting line to show the steady progression from west to east during this 45 year time period. This is likely a view of the history of terrorism either never known (for everyone under 50) or no longer remembered by most in the United States.  
+
+
+```{r map it, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	get the map
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	year_centroid$decade <- as.integer((year_centroid$iyy - 1970)/10) * 10 + 1970
+	
+#	png("gt.png",height = 1200, width = 1600)
+	
+	map_gt <- get_map(location = c(lon = mean(year_centroid$lon),
+								   lat = mean(year_centroid$lat)),
+					zoom = 2,
+					maptype = "toner-lite",
+					color = "color",
+					scale = 4)
+	
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	plot the map with points & smoothed line
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	ggmap(map_gt) +
+		
+		geom_point(data = year_centroid,
+			aes(x = lon, y = lat,
+				fill = decade,
+				color = decade),
+			size = 3,
+			shape = 21,
+			alpha = 0.75) +
+		
+		guides(fill = FALSE, alpha = FALSE, size = FALSE) +
+		
+		geom_path(data = year_centroid,
+  			aes(x = lon_3yr, y = lat_3yr,
+  			color = iyy),
+  			size = 2,
+	 		lineend = "round",
+	 		na.rm = TRUE) +
+		
+		scale_colour_gradientn(colours = rev(rainbow(4)),
+  			breaks = seq(1970, 2020, by = 10))
+	
+#	dev.off()
+  
+```
+
+***  
+
+
+In this article,  _The Bombings of America That We Forgot_ (Bryan Burrough, Sep 20, 2016, http://time.com/4501670/bombings-of-america-burrough/) that sentiment is well expressed :
+
+> Today, fifteen years after the 9/11 attacks, the explosion of a bomb remains a very big deal in this country. Detonating even the simplest pipe bomb, whether the work of some fringe militant group or a Unabomber-like kook, can draw the attentions of literally hundreds of journalists, photographers and law-enforcement personnel, not to mention rivet the rest of the country, as has been the case with the weekend’s casualty-free bombings in New York and New Jersey. It may be hard to recall now, but there was a time when most Americans were decidedly more blasé about bombing attacks. This was during the 1970s, when protest bombings in America were commonplace, especially in hard-hit cities like New York, Chicago and San Francisco. Nearly a dozen radical underground groups, dimly remembered outfits such as the Weather Underground, the New World Liberation Front and the Symbionese Liberation Army, set off hundreds of bombs during that tumultuous decade—so many, in fact, that many people all but accepted them as a part of daily life. As one woman sniffed to a New York Post reporter after an attack by a Puerto Rican independence group in 1977: "Oh, another bombing? Who is it this time?’" ... While little remembered today, there was a time during the early 1970s when the U.S. government—the Nixon Administration—considered these groups a genuine threat to national security. Alarmed by a series of Weatherman attacks, Nixon told J. Edgar Hoover during a June 1970 Oval Office meeting that "revolutionary terror" represented the single greatest threat to American society. Hoover promised to do what he could, which wasn’t much.
+
+
+***  
+
+Another approach to visualize the trends is not just with the geographic center, but also by the dispersion from the center and the distributional characteristics. Figure 3 presents box plots for the annual distribution of terrorist events for the 45 year period. This visualization presents the distribution of the distance of each event from the geo-centroid of all events for that year. In other words, from the annual center, how closely (or disparately) spaced are all of the events for that year. We can make the following observations :  
+
+ * __1970s__ - large majority of events occurred within a 5000 km distance from the geocentroid  
+ * __1980s__ - the average distance increases slightlyto 5000 km from the centers (now located between western Europe or northern South America) and a clear bi-modal trend begins to emerge. There is a population of events that appear consistently at more than 15000 km from the annual center.  
+ * __1990s__ - slight reduction in population distance from the annual mean, and also a return to a primarily uni-model distribution, as the overall centroid begins to march eastward across Africa  
+ * __2000s__ - much stronger concentration of events to the annual center - now generally within 4000 km of the annual center and a reappearance of a bi-modal distribtion of events  
+ * __2010s__ - least dispersion in the overall population difference from the annual centers. Seventy-five percent or more of the events in each year are contained within 2000 km of the annual center, but also, the development of three population distributions, one located at 7000 km from the centers and the other at 13000 km from the primary location. Thus, in the current era, there is a very strong concentration of terrorist events in the Mid-East, but also two other locations affected by 25% of the events.  
+  
+***  
+
+
+
+```{r boxplots, echo - FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	dist of each event from annual centroid
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+	
+	plot_title <- "Events Dispersion from Attacks Annual GeoCenter"
+	
+	p <- ggplot(data = loc_w_delta_dist,
+				aes(x = factor(iyear), y = delta_dist_year, fill = decade),
+				na.rm = TRUE) +
+		geom_boxplot(na.rm = TRUE) +
+		theme(axis.ticks = element_blank(), axis.text.x = element_blank()) +
+		ylab("Distance from Annual GeoCentroid (km)") +
+		xlab("Annual Comparison 1970 - 2015") +
+		ggtitle(plot_title)
+	
+	print(p)
+
+
+```
+
+
+
+#### ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#### ...	end_of_file
+#### ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

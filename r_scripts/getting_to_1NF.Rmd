@@ -1,0 +1,65 @@
+---
+title: "getting_to_1NF"
+author: "pmcdevitt"
+date: "16 juillet 2017"
+output: html_document
+---
+
+### __Notes on getting to 1NF__  
+
+- Review data dictionary for non-atomic attributes :
+
+--Non-Atomic attributes :
+__Attack Type__  
+(attacktype1; attacktype1_txt)  
+Categorical Variable  
+This field captures the general method of attack and often reflects the broad class of
+tactics used. It consists of nine categories, which are defined below. __Up to three
+attack types can be recorded for each incident.__ Typically, only one attack type is
+recorded for each incident unless the attack is comprised of a sequence of events.
+When multiple attack types may apply, the most appropriate value is determined
+based on the hierarchy below. For example, if an assassination is carried out through
+the use of an explosive, the Attack Type is coded as Assassination, not
+Bombing/Explosion. If an attack involves a sequence of events, then the first, the
+second, and the third attack types are coded in the order of the hierarchy below
+rather than the order in which they occurred.  
+Attack Type Hierarchy:  
+ * Assassination  
+ * Hijacking  
+ * Kidnapping  
+ * Barricade Incident  
+ * Bombing/Explosion  
+ * Armed Assault  
+ * Unarmed Assault  
+ * Facility/Infrastructure Attack  
+ * Unknown  
+ 
+ 
+ __Weapon Type__  
+(weaptype1; weaptype1_txt)  
+Categorical Variable  
+__Up to four weapon types are recorded for each incident.__ This field records the
+general type of weapon used in the incident.  
+
+__Weapon Sub-type__  
+(weapsubtype1; weapsubtype1_txt)  
+Categorical Variable  
+This field records a more specific value for most of the Weapon Types identified
+immediately above.  
+Each __weapon_type_n__ has a corresponding __weapon_sub_type_n__ attribute  
+
+
+__Target/Victim Information__  
+__Information on up to three targets/victims is recorded for each incident.__ The
+target/victim information fields coded for each of the three targets include type,
+name of entity, specific target/victim, and nationality of the target/victim. The field
+contains information on both intended targets and incidental bystanders, and
+therefore, intentionality should be carefully considered.
+Target/Victim Type
+(targtype1; targtype1_txt)
+
+
+__Target/Victim Subtype__  
+(targsubtype1; targsubtype1_txt)
+
+ 
