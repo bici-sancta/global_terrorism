@@ -21,6 +21,7 @@ library(geosphere)
 library(stats)
 library(geonames)
 library(TTR)
+library(viridis)
 
 # ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # ...	load some mapping libraries
@@ -357,6 +358,91 @@ Another approach to visualize the trends is not just with the geographic center,
 
 
 
+```{r map it, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	plot annual events
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+cb_palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+				"#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+				"#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+				"#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+				"#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+				"#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+				"#999999", "#E69F00", "#56B4E9", "#009E73",
+				"#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+
+for (iyyy in 1970 : 2015)
+{
+
+	if (length(year_centroid$events_per_year[year_centroid$iyy == iyyy]) > 0)
+	{
+		
+		png_file <- paste0("gt_", iyyy, ".png")
+		png(png_file, height = 1200, width = 1600)
+	
+		icolor <- cb_palette[2016 - iyyy]
+	
+		locations_year <- locations[locations$iyear == iyyy, ]
+	
+#	map_gt_annual <- get_map(location = c(lon = mean(year_centroid$lon),
+#								   lat = mean(year_centroid$lat)),
+#					zoom = 2,
+#					maptype = "toner-lite",
+#					color = "color",
+#					scale = 4)
+	
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	plot the map with points & smoothed line
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+		print(ggmap(map_gt) +
+		
+			geom_point(data = locations_year,
+				aes(x = longitude, y = latitude),
+				color = icolor,
+				size = 5
+#			shape = 21,
+#			alpha = 0.75
+					) +
+				annotate("text", x = 0, y = 75, size = 25,
+						 label = iyyy, color = icolor) +
+				annotate("text", x = 0, y = 72, size = 15,
+						 label = paste(year_centroid$events_per_year[year_centroid$iyy == iyyy],
+						 			  "events"),
+						 color = icolor) +
+			geom_point(data = year_centroid,
+					   aes( x = lon[year_centroid$iyy == iyyy], y = lat[year_centroid$iyy == iyyy]),
+					   color = "firebrick1",
+					   size = 20, shape = 13)
+
+#				scale_color_grey() + theme_classic()
+		
+#		guides(fill = FALSE, alpha = FALSE, size = FALSE) +
+		
+#		geom_path(data = locations_2010,
+#  			aes(x = longitude, y = latitude,
+#  			color = iyear),
+#  			size = 2,
+#	 		lineend = "round",
+#	 		na.rm = TRUE) +
+#		scale_colour_gradientn(colours = rev(rainbow(45)),
+ # 			breaks = seq(1970, 2015, by = 1))
+		)
+		dev.off()
+	}
+}
+	
+
+```
 #### ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #### ...	end_of_file
 #### ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
