@@ -332,9 +332,6 @@ This can be more easily visualized on an earth map, as shown in Figure 2. Here, 
 					color = "color",
 					scale = 4)
 	
-	map_gt <- get_map(location = c(lon = 80, lat = 30),
-					  zoom = 2)
-	
 # ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # ...	plot the map with points & smoothed line
 # ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -436,7 +433,7 @@ Another approach to visualize the trends is not just with the geographic center,
 
 ```
 
-```{r map it, echo = FALSE, message = FALSE}
+```{r map annually, echo = FALSE, message = FALSE}
 
 # ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # ...	plot annual events
