@@ -26,13 +26,12 @@ library(stringr)
 				   				"may", "june", "july", "august",
 				   				"september", "october", "november",
 				   				"december")
-	stop_list <- c(stop_list, "01", "02", "08", "09")
 	
 	gt_stop_words <- data_frame (word = stop_list, lexicon = "GT_List")
 
 # ...	get the input data
 
-	setwd("/home/mcdevitt/_smu/_src/global_terrorism/data/")
+	setwd("/home/mcdevitt/_smu/_src/global_terrorism_large_datafiles/gt_database/")
 
 	infile <- "gtd_summary_2017.07.20.csv"
 	gt <- read.csv(infile,
@@ -47,8 +46,10 @@ library(stringr)
 
 # ...	paste into 1 column & push to new data frame
 		
-	gt$txt <- paste(gt$summary, "|", gt$target1, "|", gt$motive,
-					"|", gt$weapdetail)
+	gt$txt <- paste(gt$summary, "|",
+#					gt$target1, "|",
+					gt$motive) 
+#					gt$weapdetail)
 	
 # ...	remove all digits
 	
@@ -62,7 +63,7 @@ library(stringr)
 	
 	iyear_start <- 1970
 	iyear_end <- 2015
-	iyear_incr <- 5
+	iyear_incr <- 10
 	
 	gt_words_lustrum_rows <- data.frame(row = seq(1:200))
 	gt_words_lustrum_cols <- data.frame()
@@ -203,3 +204,35 @@ library(stringr)
 	}
 	
 	
+	w_70 <- df_new_words[df_new_words$year == 1970,]
+	w_70_srt <- w_70[order(w_70$tf_idf, decreasing = TRUE),]
+	w_70_top20 <- w_70_srt[1:25,]
+	w_70_top20$word
+	
+	w_80 <- df_new_words[df_new_words$year == 1980,]
+	w_80_srt <- w_80[order(w_80$tf_idf, decreasing = TRUE),]
+	w_80_top20 <- w_80_srt[1:25,]
+	w_80_top20$word
+
+	w_90 <- df_new_words[df_new_words$year == 1990,]
+	w_90_srt <- w_90[order(w_90$tf_idf, decreasing = TRUE),]
+	w_90_top20 <- w_90_srt[1:25,]
+	w_90_top20$word
+	
+	w_00 <- df_new_words[df_new_words$year == 2000,]
+	w_00_srt <- w_00[order(w_00$tf_idf, decreasing = TRUE),]
+	w_00_top20 <- w_00_srt[1:25,]
+	w_00_top20$word
+	
+	w_10 <- df_new_words[df_new_words$year == 2010,]
+	w_10_srt <- w_10[order(w_10$tf_idf, decreasing = TRUE),]
+	w_10_top20 <- w_10_srt[1:25,]
+	w_10_top20$word
+	
+	decade_top20 <- data.frame(cbind(w_70_top20$word,
+									 w_80_top20$word,
+									 w_90_top20$word,
+									 w_00_top20$word,
+									 w_10_top20$word)) 
+	
+	write.csv(decade_top20, file = "decade_top20.2.csv", row.names = FALSE)

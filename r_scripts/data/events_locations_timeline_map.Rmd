@@ -459,6 +459,8 @@ cb_palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
 				"#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 
+
+
 for (iyyy in 1970 : 2015)
 {
 
@@ -504,7 +506,64 @@ for (iyyy in 1970 : 2015)
 		dev.off()
 	}
 }
+```
+
+
+
+```{r map decades, echo = FALSE, message = FALSE}
+
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	plot annual events
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+cb_palette <- c("#313695","#74add1","#9970ab",
+				"#f46d43","#d73027","#74ADD1","#4575B4")
+
+iyear_start <- 1970
+iyear_end <- 2015
+iyear_incr <- 10
+iclr <- 0
+
+for (iyyy in seq(from = iyear_start, to = iyear_end, by = iyear_incr))
+{
+
+		png_file <- paste0("gt_decade_", iyyy, ".png")
+		png(png_file, height = 1200, width = 1600)
 	
+		iclr <- iclr + 1
+		icolor <- cb_palette[iclr]
+	
+		locations_decade <- locations[locations$iyear >= iyyy &
+									  	locations$iyear < iyyy + iyear_incr, ]
+	
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# ...	plot the map with points & smoothed line
+# ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+		p1 <- ggmap(map_gt) +
+		
+			geom_point(data = locations_decade,
+				aes(x = longitude, y = latitude),
+				color = icolor,
+				size = 5,
+#			shape = 21,
+				alpha = 0.55
+					) +
+				annotate("text", x = 0, y = 75, size = 25,
+						 label = iyyy, color = icolor) +
+				annotate("text", x = 0, y = 72, size = 15,
+						 label = paste(
+						 	sum(year_centroid$events_per_year
+						 		[year_centroid$iyy >= iyyy & year_centroid$iyy < iyyy + iyear_incr]),
+						 			  "events"),
+						 color = icolor) +
+
+				scale_color_grey() + theme_classic()
+		
+		print(p1)
+		
+		dev.off()
+}
 
 ```
 #### ...	-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
